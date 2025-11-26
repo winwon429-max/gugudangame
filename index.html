@@ -2,279 +2,266 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>구구단 산성비 게임 (최대 3개 제한)</title>
+    <title>방향키 리듬 게임</title>
     <style>
         body {
             margin: 0;
-            padding: 0;
             background-color: #222;
-            color: white;
-            font-family: 'Malgun Gothic', sans-serif;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #game-container {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            border: 2px solid #444;
-            background-color: #000;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            overflow: hidden;
-        }
-
-        #ui-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 50px;
-            background-color: #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            box-sizing: border-box;
-            z-index: 10;
-        }
-
-        .stat {
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        #hp-bar {
-            width: 200px;
-            height: 20px;
-            background-color: #555;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        #hp-fill {
-            width: 100%;
-            height: 100%;
-            background-color: #ff4757;
-            transition: width 0.3s;
-        }
-
-        #play-area {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        .drop {
-            position: absolute;
-            font-size: 24px;
-            font-weight: bold;
-            color: #2ed573;
-            text-shadow: 0 0 5px #2ed573;
-            user-select: none;
-        }
-
-        #input-area {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 60px;
-            background-color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-top: 2px solid #555;
-            z-index: 10;
-        }
-
-        #answer-input {
-            width: 300px;
-            height: 40px;
-            font-size: 20px;
-            text-align: center;
-            border: none;
-            border-radius: 5px;
-            outline: none;
-        }
-
-        #game-over-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.85);
-            display: none;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            z-index: 20;
-        }
-
-        #game-over-screen h1 {
-            color: #ff4757;
-            font-size: 50px;
-            margin-bottom: 20px;
-        }
-
-        #restart-btn {
-            padding: 10px 30px;
-            font-size: 20px;
-            cursor: pointer;
-            background-color: #2ed573;
-            border: none;
-            border-radius: 5px;
+            justify-content: center;
+            height: 100vh;
             color: white;
-            font-weight: bold;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden; /* 스크롤 방지 */
         }
+        canvas {
+            background-color: #000;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            pointer-events: none; /* 클릭 통과 */
+        }
+        h1 { margin: 0; font-size: 24px; color: #ddd; }
+        #score-board { font-size: 20px; margin-top: 10px; }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px 40px;
+            border: 2px solid white;
+            text-align: center;
+            display: none; /* 평소엔 숨김 */
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background: #ffcc00;
+            border: none;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        button:hover { background: #ffaa00; }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="ui-bar">
-            <div class="stat">점수: <span id="score">0</span></div>
-            <div id="hp-bar"><div id="hp-fill"></div></div>
-        </div>
+    <div id="ui-layer">
+        <h1>방향키 리듬 게임</h1>
+        <div id="score-board">점수: 0 | 생명: 5</div>
+    </div>
 
-        <div id="play-area"></div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
 
-        <div id="input-area">
-            <input type="number" id="answer-input" placeholder="정답 입력" autofocus>
-        </div>
-
-        <div id="game-over-screen">
-            <h1>GAME OVER</h1>
-            <p class="stat">최종 점수: <span id="final-score">0</span></p>
-            <br>
-            <button id="restart-btn" onclick="startGame()">다시 하기</button>
-        </div>
+    <div id="game-over">
+        <h2 id="final-msg">GAME OVER</h2>
+        <p id="final-score">최종 점수: 0</p>
+        <button onclick="resetGame()">다시 하기</button>
     </div>
 
     <script>
-        const gameContainer = document.getElementById('game-container');
-        const playArea = document.getElementById('play-area');
-        const inputField = document.getElementById('answer-input');
-        const scoreElement = document.getElementById('score');
-        const hpFill = document.getElementById('hp-fill');
-        const gameOverScreen = document.getElementById('game-over-screen');
-        const finalScoreElement = document.getElementById('final-score');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreBoard = document.getElementById('score-board');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreText = document.getElementById('final-score');
 
-        let drops = [];
+        // 게임 설정 변수
+        const LANES = [
+            { key: 'ArrowLeft',  x: 50,  color: '#FF5555', symbol: '◄' },
+            { key: 'ArrowDown',  x: 150, color: '#5555FF', symbol: '▼' },
+            { key: 'ArrowUp',    x: 250, color: '#55FF55', symbol: '▲' },
+            { key: 'ArrowRight', x: 350, color: '#FFFF55', symbol: '►' }
+        ];
+
+        const TARGET_Y = 500; // 판정선 위치
+        const HIT_RANGE = 50; // 판정 범위
+        
+        let arrows = [];
         let score = 0;
-        let hp = 100;
-        let gameInterval = null;
-        let spawnInterval = null;
+        let lives = 5;
+        let speed = 4;
+        let frameCount = 0;
         let isGameOver = false;
+        let animationId;
 
-        function startGame() {
+        // 화살표 클래스
+        class Arrow {
+            constructor(laneIndex) {
+                this.lane = LANES[laneIndex];
+                this.x = this.lane.x;
+                this.y = -50; // 화면 위에서 시작
+                this.laneIndex = laneIndex;
+            }
+
+            update() {
+                this.y += speed;
+            }
+
+            draw() {
+                ctx.fillStyle = this.lane.color;
+                ctx.font = "bold 40px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(this.lane.symbol, this.x, this.y);
+            }
+        }
+
+        // 게임 초기화
+        function resetGame() {
+            arrows = [];
             score = 0;
-            hp = 100;
-            drops = [];
+            lives = 5;
+            speed = 4;
+            frameCount = 0;
             isGameOver = false;
-            playArea.innerHTML = '';
-            scoreElement.innerText = score;
-            hpFill.style.width = '100%';
             gameOverScreen.style.display = 'none';
-            inputField.value = '';
-            inputField.focus();
-
-            clearInterval(gameInterval);
-            clearInterval(spawnInterval);
+            updateUI();
             
-            gameInterval = setInterval(updateGame, 20);
-            spawnInterval = setInterval(spawnDrop, 1500); // 시도는 1.5초마다 하지만 3개 꽉 차면 안 나옴
+            cancelAnimationFrame(animationId);
+            gameLoop();
         }
 
-        function spawnDrop() {
-            if (isGameOver) return;
-
-            // *** 수정됨: 화면에 3개 이상이면 생성하지 않고 종료 ***
-            if (drops.length >= 3) {
-                return;
-            }
-
-            const a = Math.floor(Math.random() * 8) + 2;
-            const b = Math.floor(Math.random() * 9) + 1;
-            
-            const drop = {
-                id: Date.now() + Math.random(),
-                question: `${a} x ${b}`,
-                answer: (a * b).toString(),
-                x: Math.floor(Math.random() * (700 - 50)) + 50,
-                y: 0,
-                speed: Math.random() * 0.5 + 0.3, // 속도: 천천히
-                element: null
-            };
-
-            const el = document.createElement('div');
-            el.classList.add('drop');
-            el.innerText = drop.question;
-            el.style.left = drop.x + 'px';
-            el.style.top = drop.y + 'px';
-            playArea.appendChild(el);
-
-            drop.element = el;
-            drops.push(drop);
+        // UI 업데이트
+        function updateUI() {
+            scoreBoard.innerText = `점수: ${score} | 생명: ${lives}`;
         }
 
-        function updateGame() {
+        // 게임 종료 처리
+        function gameOver() {
+            isGameOver = true;
+            finalScoreText.innerText = `최종 점수: ${score}`;
+            gameOverScreen.style.display = 'block';
+            cancelAnimationFrame(animationId);
+        }
+
+        // 키 입력 처리 (이벤트 리스너)
+        window.addEventListener('keydown', (e) => {
             if (isGameOver) return;
 
-            for (let i = 0; i < drops.length; i++) {
-                let drop = drops[i];
-                drop.y += drop.speed;
-                drop.element.style.top = drop.y + 'px';
+            // 눌린 키가 어느 레인인지 찾기
+            const laneIdx = LANES.findIndex(l => l.key === e.code);
+            if (laneIdx === -1) return; // 방향키가 아니면 무시
 
-                if (drop.y > 540) {
-                    hp -= 10;
-                    hpFill.style.width = hp + '%';
+            // 해당 레인에 있는 화살표 중 판정선 근처에 있는 것 찾기
+            // (가장 아래에 있는 화살표부터 확인)
+            let hit = false;
+            for (let i = 0; i < arrows.length; i++) {
+                let a = arrows[i];
+                if (a.laneIndex === laneIdx) {
+                    // 거리 계산
+                    let dist = Math.abs(a.y - TARGET_Y);
                     
-                    drop.element.remove();
-                    drops.splice(i, 1);
-                    i--;
-
-                    if (hp <= 0) {
-                        endGame();
-                    }
-                }
-            }
-        }
-
-        inputField.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const value = inputField.value;
-                let hit = false;
-
-                for (let i = 0; i < drops.length; i++) {
-                    if (drops[i].answer === value) {
-                        score += 10;
-                        scoreElement.innerText = score;
-                        
-                        drops[i].element.remove();
-                        drops.splice(i, 1);
+                    if (dist < HIT_RANGE) {
+                        // 명중!
+                        arrows.splice(i, 1); // 화살표 제거
+                        score += 10 + (speed * 2); // 속도가 빠르면 점수 더 줌
                         hit = true;
+                        
+                        // 시각적 효과 (간단히)
+                        createHitEffect(a.x, TARGET_Y, a.lane.color);
                         break;
                     }
                 }
-                inputField.value = '';
             }
+            
+            // 빗나갔을 경우 (선택사항: 감점 혹은 무반응)
+            if (hit) {
+                // 속도 점진적 증가
+                if (score % 50 === 0) speed += 0.5;
+            }
+            updateUI();
         });
 
-        function endGame() {
-            isGameOver = true;
-            clearInterval(gameInterval);
-            clearInterval(spawnInterval);
-            finalScoreElement.innerText = score;
-            gameOverScreen.style.display = 'flex';
+        // 명중 효과 (반짝임)
+        let effects = [];
+        function createHitEffect(x, y, color) {
+            effects.push({ x, y, color, life: 10 });
         }
 
-        startGame();
+        function drawEffects() {
+            for (let i = effects.length - 1; i >= 0; i--) {
+                let e = effects[i];
+                ctx.strokeStyle = e.color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y - 10, 30 - e.life, 0, Math.PI * 2);
+                ctx.stroke();
+                e.life--;
+                if (e.life <= 0) effects.splice(i, 1);
+            }
+        }
+
+        // 메인 게임 루프
+        function gameLoop() {
+            if (isGameOver) return;
+
+            // 1. 화면 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 2. 배경 가이드 라인 그리기
+            ctx.strokeStyle = "#555";
+            ctx.lineWidth = 2;
+            // 판정선
+            ctx.beginPath();
+            ctx.moveTo(0, TARGET_Y);
+            ctx.lineTo(canvas.width, TARGET_Y);
+            ctx.stroke();
+            
+            // 키 위치 표시 (빈 화살표)
+            LANES.forEach(lane => {
+                ctx.fillStyle = "#333";
+                ctx.font = "bold 40px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(lane.symbol, lane.x, TARGET_Y);
+                
+                // 세로선 (트랙 구분)
+                ctx.beginPath();
+                ctx.moveTo(lane.x, 0);
+                ctx.lineTo(lane.x, canvas.height);
+                ctx.strokeStyle = "#222";
+                ctx.stroke();
+            });
+
+            // 3. 화살표 생성 (랜덤)
+            // 60프레임(약 1초)마다 생성하되, 속도가 빨라지면 더 자주 생성
+            let spawnRate = Math.max(20, 60 - speed * 2);
+            if (frameCount % Math.floor(spawnRate) === 0) {
+                const randomLane = Math.floor(Math.random() * 4);
+                arrows.push(new Arrow(randomLane));
+            }
+
+            // 4. 화살표 이동 및 그리기
+            for (let i = arrows.length - 1; i >= 0; i--) {
+                let a = arrows[i];
+                a.update();
+                a.draw();
+
+                // 화면 밖으로 나가면 (놓침)
+                if (a.y > canvas.height + 20) {
+                    arrows.splice(i, 1);
+                    lives--;
+                    updateUI();
+                    if (lives <= 0) gameOver();
+                }
+            }
+
+            // 5. 효과 그리기
+            drawEffects();
+
+            frameCount++;
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // 게임 시작
+        resetGame();
 
     </script>
 </body>
