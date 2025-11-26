@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>구구단 산성비 게임 (최대 3개 제한)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: white;
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid #444;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        #ui-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .stat {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #hp-bar {
+            width: 200px;
+            height: 20px;
+            background-color: #555;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #hp-fill {
+            width: 100%;
+            height: 100%;
+            background-color: #ff4757;
+            transition: width 0.3s;
+        }
+
+        #play-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: #2ed573;
+            text-shadow: 0 0 5px #2ed573;
+            user-select: none;
+        }
+
+        #input-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-top: 2px solid #555;
+            z-index: 10;
+        }
+
+        #answer-input {
+            width: 300px;
+            height: 40px;
+            font-size: 20px;
+            text-align: center;
+            border: none;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        #game-over-screen h1 {
+            color: #ff4757;
+            font-size: 50px;
+            margin-bottom: 20px;
+        }
+
+        #restart-btn {
+            padding: 10px 30px;
+            font-size: 20px;
+            cursor: pointer;
+            background-color: #2ed573;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui-bar">
+            <div class="stat">점수: <span id="score">0</span></div>
+            <div id="hp-bar"><div id="hp-fill"></div></div>
+        </div>
+
+        <div id="play-area"></div>
+
+        <div id="input-area">
+            <input type="number" id="answer-input" placeholder="정답 입력" autofocus>
+        </div>
+
+        <div id="game-over-screen">
+            <h1>GAME OVER</h1>
+            <p class="stat">최종 점수: <span id="final-score">0</span></p>
+            <br>
+            <button id="restart-btn" onclick="startGame()">다시 하기</button>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const playArea = document.getElementById('play-area');
+        const inputField = document.getElementById('answer-input');
+        const scoreElement = document.getElementById('score');
+        const hpFill = document.getElementById('hp-fill');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreElement = document.getElementById('final-score');
+
+        let drops = [];
+        let score = 0;
+        let hp = 100;
+        let gameInterval = null;
+        let spawnInterval = null;
+        let isGameOver = false;
+
+        function startGame() {
+            score = 0;
+            hp = 100;
+            drops = [];
+            isGameOver = false;
+            playArea.innerHTML = '';
+            scoreElement.innerText = score;
+            hpFill.style.width = '100%';
+            gameOverScreen.style.display = 'none';
+            inputField.value = '';
+            inputField.focus();
+
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            
+            gameInterval = setInterval(updateGame, 20);
+            spawnInterval = setInterval(spawnDrop, 1500); // 시도는 1.5초마다 하지만 3개 꽉 차면 안 나옴
+        }
+
+        function spawnDrop() {
+            if (isGameOver) return;
+
+            // *** 수정됨: 화면에 3개 이상이면 생성하지 않고 종료 ***
+            if (drops.length >= 3) {
+                return;
+            }
+
+            const a = Math.floor(Math.random() * 8) + 2;
+            const b = Math.floor(Math.random() * 9) + 1;
+            
+            const drop = {
+                id: Date.now() + Math.random(),
+                question: `${a} x ${b}`,
+                answer: (a * b).toString(),
+                x: Math.floor(Math.random() * (700 - 50)) + 50,
+                y: 0,
+                speed: Math.random() * 0.5 + 0.3, // 속도: 천천히
+                element: null
+            };
+
+            const el = document.createElement('div');
+            el.classList.add('drop');
+            el.innerText = drop.question;
+            el.style.left = drop.x + 'px';
+            el.style.top = drop.y + 'px';
+            playArea.appendChild(el);
+
+            drop.element = el;
+            drops.push(drop);
+        }
+
+        function updateGame() {
+            if (isGameOver) return;
+
+            for (let i = 0; i < drops.length; i++) {
+                let drop = drops[i];
+                drop.y += drop.speed;
+                drop.element.style.top = drop.y + 'px';
+
+                if (drop.y > 540) {
+                    hp -= 10;
+                    hpFill.style.width = hp + '%';
+                    
+                    drop.element.remove();
+                    drops.splice(i, 1);
+                    i--;
+
+                    if (hp <= 0) {
+                        endGame();
+                    }
+                }
+            }
+        }
+
+        inputField.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const value = inputField.value;
+                let hit = false;
+
+                for (let i = 0; i < drops.length; i++) {
+                    if (drops[i].answer === value) {
+                        score += 10;
+                        scoreElement.innerText = score;
+                        
+                        drops[i].element.remove();
+                        drops.splice(i, 1);
+                        hit = true;
+                        break;
+                    }
+                }
+                inputField.value = '';
+            }
+        });
+
+        function endGame() {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            finalScoreElement.innerText = score;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        startGame();
+
+    </script>
+</body>
+</html>
